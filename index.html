@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="myCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const triangles = [];
+        const numTriangles = 50; // 三角形の数を増やす
+
+        for (let i = 0; i < numTriangles; i++) {
+            const triangle = {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                angle: Math.random() * Math.PI * 2,
+                rotationSpeed: Math.random() * 0.02 - 0.01,
+                speed: 1,
+                redVertex: Math.floor(Math.random() * 3),
+                separationDistance: 50 // 追加: 他の三角形との最小距離
+            };
+            triangles.push(triangle);
+        }
+
+        let isMouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        canvas.addEventListener('mousedown', (event) => {
+            isMouseDown = true;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+
+        function drawRipple(x, y) {
+            ctx.beginPath();
+            ctx.arc(x, y, 50, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(173, 216, 230, 0.5)';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawTriangle(x, y, angle, redVertex) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(angle) * 50, y + Math.sin(angle) * 50);
+            ctx.lineTo(x + Math.cos(angle + Math.PI * 2 / 3) * 50, y + Math.sin(angle + Math.PI * 2 / 3) * 50);
+            ctx.lineTo(x, y);
+            ctx.fillStyle = 'black';
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + Math.cos(angle) * 50, y + Math.sin(angle) * 50);
+            ctx.lineTo(x + Math.cos(angle + Math.PI * 2 / 3) * 50, y + Math.sin(angle + Math.PI * 2 / 3) * 50);
+            ctx.lineTo(x, y);
+            ctx.fillStyle = redVertex === 0 ? 'red' : 'black';
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (isMouseDown) {
+                triangles.forEach((triangle) => {
+                    let angleToMouse = Math.atan2(mouseY - triangle.y, mouseX - triangle.x);
+                    triangle.angle += (angleToMouse - triangle.angle) * 0.05; // ゆっくりとマウスの方向に向けて回転
+                });
+                drawRipple(mouseX, mouseY);
+            }
+
+            triangles.forEach((triangle, index) => {
+                let dx = Math.cos(triangle.angle) * triangle.speed;
+                let dy = Math.sin(triangle.angle) * triangle.speed;
+
+                // 近くの三角形との距離を計算
+                let closeTriangles = triangles.filter((otherTriangle, otherIndex) => {
+                    if (index !== otherIndex) {
+                        let distance = Math.sqrt((triangle.x - otherTriangle.x) ** 2 + (triangle.y - otherTriangle.y) ** 2);
+                        return distance < triangle.separationDistance;
+                    }
+                });
+
+                if (closeTriangles.length > 0) {
+                    // 近くの三角形がいる場合は平均方向に移動
+                    let avgAngle = closeTriangles.reduce((acc, curr) => acc + curr.angle, 0) / closeTriangles.length;
+                    triangle.angle += (avgAngle - triangle.angle) * 0.05; // ゆっくりと合流するように変更
+                }
+
+                if (Math.random() < 0.01) {
+                    // 一定確率で群れから離脱
+                    triangle.rotationSpeed = Math.random() * 0.02 - 0.01;
+                }
+
+                // 画面端で跳ね返る処理
+                if (triangle.x < 0 || triangle.x > canvas.width) {
+                    triangle.angle = Math.atan2(canvas.height / 2 - triangle.y, canvas.width / 2 - triangle.x);
+                    triangle.speed = 0.5; // 速度を減速
+                }
+                if (triangle.y < 0 || triangle.y > canvas.height) {
+                    triangle.angle = Math.atan2(canvas.height / 2 - triangle.y, canvas.width / 2 - triangle.x);
+                    triangle.speed = 0.5; // 速度を減速
+                }
+
+                triangle.x += Math.cos(triangle.angle) * triangle.speed;
+                triangle.y += Math.sin(triangle.angle) * triangle.speed;
+
+                drawTriangle(triangle.x, triangle.y, triangle.angle, triangle.redVertex);
+            });
+
+            requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
+</body>
+</html>
