@@ -5,7 +5,6 @@
         body {
             margin: 0;
             overflow: hidden;
-            
         }
     </style>
 </head>
@@ -28,7 +27,9 @@
                 rotationSpeed: Math.random() * 0.02 - 0.01,
                 speed: 1,
                 redVertex: Math.floor(Math.random() * 3),
-                separationDistance: 50 // 追加: 他の三角形との最小距離
+                separationDistance: 5, // 他の三角形との最小距離を5pxに設定
+                cohesionDistance: 100, // 群れを作る距離を100pxに設定
+                maxSpeed: 1.1 // 速度の最大倍率を1.1倍に設定
             };
             triangles.push(triangle);
         }
@@ -90,7 +91,6 @@
                 let dx = Math.cos(triangle.angle) * triangle.speed;
                 let dy = Math.sin(triangle.angle) * triangle.speed;
 
-                // 近くの三角形との距離を計算
                 let closeTriangles = triangles.filter((otherTriangle, otherIndex) => {
                     if (index !== otherIndex) {
                         let distance = Math.sqrt((triangle.x - otherTriangle.x) ** 2 + (triangle.y - otherTriangle.y) ** 2);
@@ -99,24 +99,33 @@
                 });
 
                 if (closeTriangles.length > 0) {
-                    // 近くの三角形がいる場合は平均方向に移動
                     let avgAngle = closeTriangles.reduce((acc, curr) => acc + curr.angle, 0) / closeTriangles.length;
-                    triangle.angle += (avgAngle - triangle.angle) * 0.05; // ゆっくりと合流するように変更
+                    triangle.angle += (avgAngle - triangle.angle) * 0.01; // ゆっくりと合流するように変更
+
+                    if (closeTriangles.every((otherTriangle) => {
+                        let distance = Math.sqrt((triangle.x - otherTriangle.x) ** 2 + (triangle.y - otherTriangle.y) ** 2);
+                        return distance < triangle.cohesionDistance;
+                    })) {
+                        let avgSpeed = closeTriangles.reduce((acc, curr) => acc + curr.speed, 0) / closeTriangles.length;
+                        if (avgSpeed < triangle.speed * triangle.maxSpeed) {
+                            triangle.speed = avgSpeed;
+                        }
+                    } else {
+                        triangle.speed = 1; // 自分と同じ進行方向の相手に接近しようと加速している個体以外は、通常の移動速度まで減速
+                    }
                 }
 
                 if (Math.random() < 0.01) {
-                    // 一定確率で群れから離脱
                     triangle.rotationSpeed = Math.random() * 0.02 - 0.01;
                 }
 
-                // 画面端で跳ね返る処理
                 if (triangle.x < 0 || triangle.x > canvas.width) {
                     triangle.angle = Math.atan2(canvas.height / 2 - triangle.y, canvas.width / 2 - triangle.x);
-                    triangle.speed = 0.5; // 速度を減速
+                    triangle.speed = 0.5;
                 }
                 if (triangle.y < 0 || triangle.y > canvas.height) {
                     triangle.angle = Math.atan2(canvas.height / 2 - triangle.y, canvas.width / 2 - triangle.x);
-                    triangle.speed = 0.5; // 速度を減速
+                    triangle.speed = 0.5;
                 }
 
                 triangle.x += Math.cos(triangle.angle) * triangle.speed;
