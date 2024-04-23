@@ -1,6 +1,5 @@
 修正後のコードは以下の通りです。
 
-```html
 <!DOCTYPE html>
 <html>
 <head>
@@ -36,7 +35,7 @@
                 separationDistance: 5, // 他の魚との最小距離を5pxに設定
                 cohesionDistance: 200, // 群れを作る距離を100pxに設定
                 maxSpeed: 2, // 速度の最大倍率を1.1倍に設定
-                tailRotationDirection: 1, // FishTailの回転方向を追加
+                tailRotationDirection: Math.random() > 0.5 ? 1 : -1, // FishTailの回転方向を追加
                 tailRotationLimit: 1 // FishTailの回転角の限界値を追加
             };
             fishes.push(fish);
@@ -174,4 +173,3 @@
     </script>
 </body>
 </html>
-```
