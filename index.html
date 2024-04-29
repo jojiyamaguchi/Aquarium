@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <style>
         body {
@@ -30,11 +30,13 @@
                 tailRotationSpeed:  0.025, // FishTailの回転速度を追加
                 speed: 1,
                 isRed: Math.random() < 0.25, // 25%の確率で赤色にする
-                separationDistance: 5, // 他の魚との最小距離を5pxに設定
-                cohesionDistance: 200, // 群れを作る距離を100pxに設定
+                separationDistance: 200, // 他の魚との最小距離を200pxに設定
+                cohesionDistance: 500, // 群れを作る距離を500pxに設定
                 maxSpeed: 2, // 速度の最大倍率を1.1倍に設定
                 tailRotationDirection: Math.random() > 0.5 ? 1 : -1, // FishTailの回転方向を追加
-                tailRotationLimit: 1 // FishTailの回転角の限界値を追加
+                tailRotationLimit: 1, // FishTailの回転角の限界値を追加
+                followState: false, // 追随状態を表すフラグを追加
+                leavingState: false // 離脱状態を表すフラグを追加
             };
             fishes.push(fish);
         }
@@ -106,7 +108,7 @@
             if (isMouseDown) {
                 fishes.forEach((fish) => {
                     let angleToMouse = Math.atan2(mouseY - fish.y, mouseX - fish.x);
-                    fish.angle += (angleToMouse - fish.angle) * 0.05; // ゆっくりとマウスの方向に向けて回転
+                    fish.angle += (angleToMouse - fish.angle) * 0.01; // ゆっくりとマウスの方向に向けて回転
                 });
                 drawRipple(mouseX, mouseY);
             }
@@ -134,8 +136,41 @@
                         if (avgSpeed < fish.speed * fish.maxSpeed) {
                             fish.speed = avgSpeed;
                         }
+                        if (!fish.followState) {
+                            let nearestFish = closeFishes.reduce((nearest, current) => {
+                                let distanceToNearest = Math.sqrt((fish.x - nearest.x) ** 2 + (fish.y - nearest.y) ** 2);
+                                let distanceToCurrent = Math.sqrt((fish.x - current.x) ** 2 + (fish.y - current.y) ** 2);
+                                return distanceToCurrent < distanceToNearest ? current : nearest;
+                            });
+                            let angleToNearest = Math.atan2(nearestFish.y - fish.y, nearestFish.x - fish.x);
+                            let angleDiff = Math.abs(angleToNearest - fish.angle);
+                            if (angleDiff < Math.PI / 8) { // ±22.5°
+                                fish.angle += (angleToNearest - fish.angle) * 0.01; // ゆっくりと最寄りの魚の方向に向けて回転
+                                fish.followState = true;
+                            }
+                        }
                     } else {
-                        fish.speed = 1; // 自分と同じ進行方向の相手に接近しようと加速している個体以外は、通常の移動速度まで減速
+                        if (!fish.followState) {
+                            fish.speed = fish.maxSpeed; // 追随していない魚は最大速度で進む
+                        }
+                        fish.followState = false;
+                    }
+
+                    // 後ろにいる魚が減速
+                    let backFish = closeFishes.reduce((back, current) => {
+                        let distanceToBack = Math.sqrt((fish.x - back.x) ** 2 + (fish.y - back.y) ** 2);
+                        let distanceToCurrent = Math.sqrt((fish.x - current.x) ** 2 + (fish.y - current.y) ** 2);
+                        return distanceToCurrent > distanceToBack ? current : back;
+                    });
+                    if (backFish.speed > 0.5) {
+                        backFish.speed -= 0.1;
+                    }
+                } else {
+                    // 離散するように速度を調整
+                    if (fish.speed > 1) {
+                        fish.speed -= 0.1;
+                    } else {
+                        fish.speed += 0.1; // 近づいている場合は加速
                     }
                 }
 
@@ -143,11 +178,7 @@
                     fish.rotationSpeed = Math.random() * 0.02 - 0.01;
                 }
 
-                if (fish.x < 0 || fish.x > canvas.width) {
-                    fish.angle = Math.atan2(canvas.height / 2 - fish.y, canvas.width / 2 - fish.x);
-                    fish.speed = 0.5;
-                }
-                if (fish.y < 0 || fish.y > canvas.height) {
+                if (fish.x < 0 || fish.x > canvas.width || fish.y < 0 || fish.y > canvas.height) {
                     fish.angle = Math.atan2(canvas.height / 2 - fish.y, canvas.width / 2 - fish.x);
                     fish.speed = 0.5;
                 }
@@ -161,12 +192,29 @@
                     fish.tailRotationDirection *= -1; // 回転方向を反転
                 }
 
+                // 自分の進行方向cohesionDistance以内に他の魚がいない個体は加速
+                if (!closeFishes.some((otherFish) => {
+                    let distance = Math.sqrt((fish.x - otherFish.x) ** 2 + (fish.y - otherFish.y) ** 2);
+                    return distance < fish.cohesionDistance;
+                }) && fish.speed < fish.maxSpeed) {
+                    fish.speed += 0.1;
+                }
+
+                // Fishの回転をゆっくりと行いつつ移動
+                let targetAngle = Math.atan2(dy, dx);
+                let angleDiff = targetAngle - fish.angle;
+                if (angleDiff > Math.PI) {
+                    angleDiff -= 2 * Math.PI;
+                } else if (angleDiff < -Math.PI) {
+                    angleDiff += 2 * Math.PI;
+                }
+                fish.angle += angleDiff * 0.01;
+
                 drawFish(fish.x, fish.y, fish.angle, fish.isRed, fish.tailAngle);
             });
 
-            requestAnimationFrame(update);
+            setTimeout(update, 1000 / 60); // Update the animation at 60 frames per second
         }
-
         update();
     </script>
 </body>
