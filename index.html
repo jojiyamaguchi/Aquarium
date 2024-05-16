@@ -30,6 +30,7 @@
                 this.turning = false;
                 this.turningSpeed = 0.01;
                 this.speedMultiplier = 1;
+                this.radius = 30; // 魚の体の半径
             }
 
             draw() {
@@ -62,7 +63,7 @@
                 ctx.restore();
             }
 
-            update(targetX, targetY, repel = false) {
+            update(targetX, targetY, repel = false, fishes) {
                 this.tailAngle += this.tailDirection * this.tailSpeed;
                 if (this.tailAngle > 0.5 || this.tailAngle < -0.5) {
                     this.tailDirection *= -1;
@@ -88,6 +89,22 @@
 
                 this.x += Math.cos(this.angle) * speed;
                 this.y += Math.sin(this.angle) * speed;
+
+                // 魚同士の距離を保つ
+                fishes.forEach(fish => {
+                    if (fish !== this) {
+                        const dx = fish.x - this.x;
+                        const dy = fish.y - this.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < this.radius * 2) {
+                            const angle = Math.atan2(dy, dx);
+                            this.x -= Math.cos(angle) * (this.radius * 2 - distance) / 2;
+                            this.y -= Math.sin(angle) * (this.radius * 2 - distance) / 2;
+                            fish.x += Math.cos(angle) * (this.radius * 2 - distance) / 2;
+                            fish.y += Math.sin(angle) * (this.radius * 2 - distance) / 2;
+                        }
+                    }
+                });
 
                 if (this.x < 0) this.x = 0;
                 if (this.x > this.ctx.canvas.width) this.x = this.ctx.canvas.width;
@@ -117,7 +134,7 @@
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             fishes.forEach(fish => {
-                fish.update(targetX, targetY, repel);
+                fish.update(targetX, targetY, repel, fishes);
                 fish.draw();
             });
             requestAnimationFrame(animate);
