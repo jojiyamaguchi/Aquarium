@@ -1,231 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魚のアニメーション</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: linear-gradient(to bottom, #87CEEB, #4682B4);
-        }
         canvas {
             display: block;
+            margin: 0 auto;
+            background-color: #87CEEB;
+            width: 95vw;
+            height: 95vh;
         }
     </style>
 </head>
 <body>
-    <iframe srcdoc="
-        <html>
-        <head>
-            <style>
-                body {
-                    margin: 0;
-                    overflow: hidden;
-                    background: linear-gradient(to bottom, #87CEEB, #4682B4);
-                }
-                canvas {
-                    display: block;
-                }
-            </style>
-        </head>
-        <body>
-            <canvas id='myCanvas'></canvas>
-            <script>
-                const canvas = document.getElementById('myCanvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
+    <canvas id="fishCanvas"></canvas>
+    <script>
+        class Fish {
+            constructor(ctx, x, y, color, tailSpeed) {
+                this.ctx = ctx;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.tailSpeed = tailSpeed;
+                this.tailAngle = 0;
+                this.tailDirection = 1;
+                this.angle = Math.random() * Math.PI * 2;
+                this.turning = false;
+                this.turningSpeed = 0.01;
+                this.speedMultiplier = 1;
+            }
 
-                const fishes = [];
-                const numFishes = 50;
+            draw() {
+                const ctx = this.ctx;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
 
-                for (let i = 0; i < numFishes; i++) {
-                    const fish = {
-                        x: Math.random() * canvas.width,
-                        y: Math.random() * canvas.height,
-                        angle: Math.random() * Math.PI * 2,
-                        rotationSpeed: Math.random() * 0.02 - 0.01,
-                        tailAngle: 0,
-                        tailRotationSpeed: 0.025,
-                        speed: 1,
-                        isRed: Math.random() < 0.25,
-                        separationDistance: 200,
-                        cohesionDistance: 500,
-                        maxSpeed: 2,
-                        tailRotationDirection: Math.random() > 0.5 ? 1 : -1,
-                        tailRotationLimit: 1,
-                        followState: false,
-                        leavingState: false
-                    };
-                    fishes.push(fish);
-                }
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 30, 15, 0, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.stroke();
 
-                let isMouseDown = false;
-                let mouseX = 0;
-                let mouseY = 0;
+                // Tail
+                ctx.save();
+                ctx.translate(-30, 0);
+                ctx.rotate(this.tailAngle);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-20, 10);
+                ctx.lineTo(-20, -10);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
 
-                canvas.addEventListener('mousedown', (event) => {
-                    isMouseDown = true;
-                    mouseX = event.clientX;
-                    mouseY = event.clientY;
-                });
+                ctx.restore();
+            }
 
-                canvas.addEventListener('mouseup', () => {
-                    isMouseDown = false;
-                });
-
-                function drawRipple(x, y) {
-                    ctx.beginPath();
-                    ctx.arc(x, y, 50, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(173, 216, 230, 0.5)';
-                    ctx.fill();
-                    ctx.closePath();
+            update(targetX, targetY, repel = false) {
+                this.tailAngle += this.tailDirection * this.tailSpeed;
+                if (this.tailAngle > 0.5 || this.tailAngle < -0.5) {
+                    this.tailDirection *= -1;
                 }
 
-                function drawFish(x, y, angle, isRed, tailAngle) {
-                    ctx.save();
-                    ctx.translate(x, y);
-                    ctx.rotate(angle);
-
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(50, -15);
-                    ctx.lineTo(100, 0);
-                    ctx.lineTo(50, 15);
-                    ctx.lineTo(0, 0);
-                    ctx.fillStyle = isRed ? 'red' : 'black';
-                    ctx.fill();
-                    ctx.closePath();
-
-                    ctx.save();
-                    ctx.translate(0, 0);
-                    ctx.rotate(tailAngle);
-
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(-25, -7);
-                    ctx.lineTo(-25, 7);
-                    ctx.lineTo(0, 0);
-                    ctx.fillStyle = isRed ? 'red' : 'black';
-                    ctx.fill();
-                    ctx.closePath();
-
-                    ctx.restore();
-
-                    ctx.restore();
+                if (Math.random() < 0.01) {
+                    this.turning = !this.turning;
                 }
 
-                function update() {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (this.turning) {
+                    this.angle += this.turningSpeed;
+                }
 
-                    if (isMouseDown) {
-                        fishes.forEach((fish) => {
-                            let angleToMouse = Math.atan2(mouseY - fish.y, mouseX - fish.x);
-                            fish.angle += (angleToMouse - fish.angle) * 0.01;
-                        });
-                        drawRipple(mouseX, mouseY);
+                const speed = Math.abs(this.tailAngle) * 2 * this.speedMultiplier;
+                if (targetX !== null && targetY !== null) {
+                    const dx = targetX - this.x;
+                    const dy = targetY - this.y;
+                    this.angle = Math.atan2(dy, dx);
+                    if (repel) {
+                        this.angle += Math.PI; // 反対方向に向かう
                     }
-
-                    fishes.forEach((fish, index) => {
-                        let dx = Math.cos(fish.angle) * fish.speed;
-                        let dy = Math.sin(fish.angle) * fish.speed;
-
-                        let closeFishes = fishes.filter((otherFish, otherIndex) => {
-                            if (index !== otherIndex) {
-                                let distance = Math.sqrt((fish.x - otherFish.x) ** 2 + (fish.y - otherFish.y) ** 2);
-                                return distance < fish.separationDistance;
-                            }
-                        });
-
-                        if (closeFishes.length > 0) {
-                            let avgAngle = closeFishes.reduce((acc, curr) => acc + curr.angle, 0) / closeFishes.length;
-                            fish.angle += (avgAngle - fish.angle) * 0.01;
-
-                            if (closeFishes.every((otherFish) => {
-                                let distance = Math.sqrt((fish.x - otherFish.x) ** 2 + (fish.y - otherFish.y) ** 2);
-                                return distance < fish.cohesionDistance;
-                            })) {
-                                let avgSpeed = closeFishes.reduce((acc, curr) => acc + curr.speed, 0) / closeFishes.length;
-                                if (avgSpeed < fish.speed * fish.maxSpeed) {
-                                    fish.speed = avgSpeed;
-                                }
-                                if (!fish.followState) {
-                                    let nearestFish = closeFishes.reduce((nearest, current) => {
-                                        let distanceToNearest = Math.sqrt((fish.x - nearest.x) ** 2 + (fish.y - nearest.y) ** 2);
-                                        let distanceToCurrent = Math.sqrt((fish.x - current.x) ** 2 + (fish.y - current.y) ** 2);
-                                        return distanceToCurrent < distanceToNearest ? current : nearest;
-                                    });
-                                    let angleToNearest = Math.atan2(nearestFish.y - fish.y, nearestFish.x - fish.x);
-                                    let angleDiff = Math.abs(angleToNearest - fish.angle);
-                                    if (angleDiff < Math.PI / 8) {
-                                        fish.angle += (angleToNearest - fish.angle) * 0.01;
-                                        fish.followState = true;
-                                    }
-                                }
-                            } else {
-                                if (!fish.followState) {
-                                    fish.speed = fish.maxSpeed;
-                                }
-                                fish.followState = false;
-                            }
-
-                            let backFish = closeFishes.reduce((back, current) => {
-                                let distanceToBack = Math.sqrt((fish.x - back.x) ** 2 + (fish.y - back.y) ** 2);
-                                let distanceToCurrent = Math.sqrt((fish.x - current.x) ** 2 + (fish.y - current.y) ** 2);
-                                return distanceToCurrent > distanceToBack ? current : back;
-                            });
-                            if (backFish.speed > 0.5) {
-                                backFish.speed -= 0.1;
-                            }
-                        } else {
-                            if (fish.speed > 1) {
-                                fish.speed -= 0.1;
-                            } else {
-                                fish.speed += 0.1;
-                            }
-                        }
-
-                        if (Math.random() < 0.01) {
-                            fish.rotationSpeed = Math.random() * 0.02 - 0.01;
-                        }
-
-                        if (fish.x < 0 || fish.x > canvas.width || fish.y < 0 || fish.y > canvas.height) {
-                            fish.angle = Math.atan2(canvas.height / 2 - fish.y, canvas.width / 2 - fish.x);
-                            fish.speed = 0.5;
-                        }
-
-                        fish.x += Math.cos(fish.angle) * fish.speed;
-                        fish.y += Math.sin(fish.angle) * fish.speed;
-
-                        fish.tailAngle += fish.tailRotationSpeed * fish.tailRotationDirection;
-                        if (fish.tailAngle >= fish.tailRotationLimit || fish.tailAngle <= -fish.tailRotationLimit) {
-                            fish.tailRotationDirection *= -1;
-                        }
-
-                        if (!closeFishes.some((otherFish) => {
-                            let distance = Math.sqrt((fish.x - otherFish.x) ** 2 + (fish.y - otherFish.y) ** 2);
-                            return distance < fish.cohesionDistance;
-                        }) && fish.speed < fish.maxSpeed) {
-                            fish.speed += 0.1;
-                        }
-
-                        let targetAngle = Math.atan2(dy, dx);
-                        let angleDiff = targetAngle - fish.angle;
-                        if (angleDiff > Math.PI) {
-                            angleDiff -= 2 * Math.PI;
-                        } else if (angleDiff < -Math.PI) {
-                            angleDiff += 2 * Math.PI;
-                        }
-                        fish.angle += angleDiff * 0.01;
-
-                        drawFish(fish.x, fish.y, fish.angle, fish.isRed, fish.tailAngle);
-                    });
-
-                    setTimeout(update, 1000 / 60);
                 }
-                update();
-            </script>
-        </body>
-        </html>
-    " style="width: 100%; height: 100vh; border: none;"></iframe>
+
+                this.x += Math.cos(this.angle) * speed;
+                this.y += Math.sin(this.angle) * speed;
+
+                if (this.x < 0) this.x = 0;
+                if (this.x > this.ctx.canvas.width) this.x = this.ctx.canvas.width;
+                if (this.y < 0) this.y = 0;
+                if (this.y > this.ctx.canvas.height) this.y = this.ctx.canvas.height;
+            }
+        }
+
+        const canvas = document.getElementById('fishCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const fishes = [];
+        let targetX = null;
+        let targetY = null;
+        let speedBoostTimeout = null;
+        let repel = false;
+
+        for (let i = 0; i < 10; i++) {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+            const tailSpeed = Math.random() * 0.1 + 0.05;
+            fishes.push(new Fish(ctx, x, y, color, tailSpeed));
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            fishes.forEach(fish => {
+                fish.update(targetX, targetY, repel);
+                fish.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            targetX = e.clientX;
+            targetY = e.clientY;
+            repel = false;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            targetX = null;
+            targetY = null;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            targetX = e.touches[0].clientX;
+            targetY = e.touches[0].clientY;
+            repel = false;
+        });
+
+        canvas.addEventListener('touchend', () => {
+            targetX = null;
+            targetY = null;
+        });
+
+        canvas.addEventListener('dblclick', (e) => {
+            if (speedBoostTimeout) {
+                clearTimeout(speedBoostTimeout);
+            }
+            targetX = e.clientX;
+            targetY = e.clientY;
+            repel = true;
+            fishes.forEach(fish => fish.speedMultiplier = 2);
+            speedBoostTimeout = setTimeout(() => {
+                fishes.forEach(fish => fish.speedMultiplier = 1);
+                targetX = null;
+                targetY = null;
+                repel = false;
+            }, 30000);
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) {
+                if (speedBoostTimeout) {
+                    clearTimeout(speedBoostTimeout);
+                }
+                targetX = e.changedTouches[0].clientX;
+                targetY = e.changedTouches[0].clientY;
+                repel = true;
+                fishes.forEach(fish => fish.speedMultiplier = 2);
+                speedBoostTimeout = setTimeout(() => {
+                    fishes.forEach(fish => fish.speedMultiplier = 1);
+                    targetX = null;
+                    targetY = null;
+                    repel = false;
+                }, 30000);
+            }
+        });
+
+        animate();
+    </script>
 </body>
 </html>
